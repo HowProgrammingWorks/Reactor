@@ -1,2 +1,1 @@
-# Reactor
-Reactor Pattern
+# Reactor Pattern
