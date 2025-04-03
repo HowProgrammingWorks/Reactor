@@ -8,11 +8,13 @@ class Reactor {
     close: [],
   };
 
+  #queueCount = 0;
   #active = false;
 
   enqueue(phase, fn) {
     if (this.#phases[phase]) {
       this.#phases[phase].push(fn);
+      this.#queueCount++;
     }
   }
 
@@ -22,6 +24,7 @@ class Reactor {
     while (this.#active && this.#hasPending()) {
       for (const phase of phases) {
         const queue = this.#phases[phase].splice(0);
+        this.#queueCount -= queue.length;
         for (const fn of queue) fn();
       }
     }
@@ -30,6 +33,7 @@ class Reactor {
   stop() {
     const phases = Object.values(this.#phases);
     for (const phase of phases) phase.splice(0);
+    this.#queueCount = 0;
     this.#active = false;
   }
 
@@ -38,8 +42,7 @@ class Reactor {
   }
 
   #hasPending() {
-    const phases = Object.values(this.#phases);
-    return phases.some((queue) => queue.length);
+    return this.#queueCount > 0;
   }
 }
 
@@ -69,15 +72,13 @@ const setTimeout = (fn, delay) => {
   return id;
 };
 
-const clearTimeout = (id) => timeouts.delete(id);
-
 // File system
 
 const { readFileSync } = require('node:fs');
 
 const readFile = (path, encoding, callback) => {
   const read = () => {
-    const id = setTimeout(() => {
+    setTimeout(() => {
       try {
         const data = readFileSync(path, encoding);
         callback(null, data);
@@ -85,7 +86,6 @@ const readFile = (path, encoding, callback) => {
         callback(err);
       }
     }, 1000);
-    clearTimeout(id);
   };
   eventLoop.enqueue('io', read);
 };
